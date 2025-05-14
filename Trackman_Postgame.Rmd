@@ -1,0 +1,395 @@
+---
+output: html_document 
+---
+<style>
+.custom-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+
+
+.custom-header h1 {
+  color: #492590;
+  margin: 0;
+}
+
+.custom-header img {
+  margin-right: 29px;
+  width: 125px;
+  height: auto;
+}
+
+/* Example CSS rules */
+.plot-container {
+  align-items: center;
+  margin-bottom: 50px;
+    width: 200px; /* Adjust the width as needed */
+    height: auto; /* Adjust the height as needed */
+}
+
+</style>
+<div class="custom-header">
+  <h1>Ben Smith Scrimmage 10-27</h1>
+  <img src="GCUBASEBALL.jpg" alt="Header Image">
+</div>
+<div class="plot-container" style="width: 900px; height: 50px;">
+  <img src="Pitcher_summary.png">
+</div>
+<div class="plot-container" style="width:900px; height: 275px;">
+  <img src="grid.png">
+</div>
+<div class="plot-container" style="width:900px; height: 180px;">
+  <img src="Metrics.png">
+</div>
+<div class="plot-container" style="width:900px; height: 180px;">
+  <img src="SeasonMetrics.png">
+</div>
+<div class="plot-container" style="width:900px; height: 80px;">
+  <img src="stuff_combined.png">
+<style>
+```{r Pitcher Summary, echo=FALSE, message=FALSE, warning=FALSE}
+#<div class="plot-container" style="width:900px; height: 130px;">
+  #<img src="SeasonMetrics.png">
+#</div>
+#IDEAS: Add Balls in play with location and move movement plot down to make a square and big
+library(randomForest)
+library(glm2)
+library(grid)
+library(tinytex)
+library(tidyverse) # Load libraries
+library(ggplot2)
+library(ggforce)
+library(kableExtra)
+library(dplyr)
+library(caret)
+library(pandoc)
+library(gridExtra)
+library(webshot)
+library(patchwork)
+library(gtable)
+# Read and process data
+dfm <- read_csv("2025Season_CSV.csv") 
+SeasondfPitcher <- dfm %>% filter(Pitcher == "Ben Smith")
+dfStuff <- read_csv("combined_stuff_location.csv") %>% filter(Pitcher == "Ben Smith" & Date == "10/27/2024")
+dfp <- read_csv("2025Season_CSV.csv") 
+dfPitcher <- dfp %>%  filter(Pitcher == "Ben Smith") %>% 
+  mutate(
+    BIP = ifelse (PitchCall %in% c("Inplay"), 1, 0),
+    Strike_Swinging = ifelse(PitchCall %in% c("StrikeSwinging"), 1, 0),
+    
+    PitchCount = 1,
+    
+    Hits = ifelse(PlayResult %in% c("Single", "Double", "Triple", "HomeRun"), 1, 0),
+    
+    Strikeouts = ifelse(KorBB %in% c("Strikeout"), 1, 0),
+    
+    Walks = ifelse(KorBB %in% c("Walk"), 1, 0),
+    
+Results = ifelse(PitchCall %in% c("StrikeCalled", "FoulBall", "StrikeSwinging", "Foul"), 1, 0),    
+    isOut = case_when(
+   
+      PlayResult %in% c("Out") ~ TRUE,
+      
+      KorBB %in% c("Strikeout") ~ TRUE,
+      
+      TRUE ~ FALSE
+      
+    )
+  )
+determineHitterSide <- function(hitter, pitcherThrow) {
+  # Check if the hitter is a switch hitter
+  if (hitter == "switch") {
+    # If the pitcher throws left, the hitter bats right, and vice versa
+    if (pitcherThrow == "left") {
+      return("right")
+    } else {
+      return("left")
+    }
+  } else {
+    # If not a switch hitter, the hitter bats as they normally do
+    return(hitter)
+  }
+}
+
+# Calculate strike percentage, first pitch strike percentage, and swing-strike percentage
+OnBase<- c("Single", "Double", "Triple", "HomeRun")
+strike_conditions <- c("StrikeCalled", "FoulBall", "StrikeSwinging", "InPlay")
+Hits <- sum(dfPitcher$PlayResult %in% OnBase)
+strike_percentage <- sum(dfPitcher$PitchCall %in% strike_conditions) / sum(dfPitcher$PitchCount) * 100
+`1b`<-  sum(dfPitcher$PlayResult %in% "Single")
+`2b`<-  sum(dfPitcher$PlayResult %in% "Double")
+`3b`<-  sum(dfPitcher$PlayResult %in% "Triple")
+HR <-  sum(dfPitcher$PlayResult %in% "HomeRun")
+Walks <- sum(dfPitcher$KorBB %in% "Walk")
+HitByPitch <- sum(dfPitcher$PlayResult %in% "HitByPitch")
+SacrificeFlies <- sum(dfPitcher$PlayResult %in% "Sacrifice")
+first_pitch_strike_percentage <- sum(dfPitcher$PitchCall %in% strike_conditions & dfPitcher$PitchofPA == 1) / sum(dfPitcher$PitchofPA == 1) * 100
+TB <- sum(`1b`+2*`2b`+3*`3b`+4*HR)
+Swing_Strike <- sum(dfPitcher$Strike_Swinging) / sum(dfPitcher$PitchCall %in% c("FoulBall", "InPlay", "BallCalled", "StrikeCalled", "HitByPitch")) * 100
+Batters <-  c("Out", "Single", "Double", "Triple", "Homerun", "Walk",  "Error","StrikeoutLooking", "StrikeoutSwinging", "Sacrifice","HitByPitch")
+Batters2 <-  c("Out", "Single", "Double", "Triple", "Homerun",  "Error","StrikeoutLooking", "StrikeoutSwinging", "Sacrifice","Strikeout")
+# Assuming df is your data frame and 'name' is the column of interest
+BF <-dfPitcher %>%
+summarise(BF = sum(ifelse(Strikes == 0 & Balls == 0, 1, 0)))
+
+AB<- sum(dfPitcher$PlayResult %in% Batters2)+sum(dfPitcher$KorBB %in% Batters2)
+# Round the percentages
+wOBA<-(.888*sum(`1b`) + 1.271*sum(`2b`) + 1.616*sum(`3b`) + 2.101*sum(HR) + .690*sum(Walks) + .722*sum(HitByPitch)) / (sum(AB) + sum(Walks) + sum(HitByPitch) + sum(SacrificeFlies))
+
+
+
+first_pitch_strike_percentage_rounded <- round(first_pitch_strike_percentage, 1)
+AVG <- sum(Hits)/sum(AB)
+
+strike_percentage_rounded <- round(strike_percentage, 1)
+
+Swing_Strike_rounded <- round(Swing_Strike, 1)
+# Filter data based on the conditions
+In_Zone_data <- dfPitcher %>%
+  filter(PlateLocSide > -.8, PlateLocSide < .8, 
+         PlateLocHeight > 1.4, PlateLocHeight < 3.5)
+
+# Calculate the sum
+sum_in_zone <- nrow(In_Zone_data)
+AVG <- sprintf("%.3f", sum(AVG))
+SLG <- sprintf("%.3f", sum(TB) / sum(AB))
+wOBA <- sprintf("%.3f", sum(wOBA))
+
+# sum(PlayResult %in% c("StrikeoutSwinging","StrikeoutLooking")),
+Pitcher_summary <- dfPitcher %>%
+  summarize(
+    PitchCount = n(),
+    BF =sum(BF),
+    Hits = sum(Hits),
+    BB = sum(Walks),
+    K = sum(Strikeouts),
+    R = sum(RunsScored, na.rm = TRUE),
+    IP=max(Inning)-min(Inning)+1 ,
+    #1⁄3
+    AVG = AVG,
+    SLG = SLG,
+    wOBA = wOBA,
+)
+
+# Format the table
+Pitcher_summary <- Pitcher_summary %>%
+  knitr::kable("html", align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "bordered"), full_width = F, position = "center") %>%
+  row_spec(0, bold = T, color = "white", background = "#492590") 
+save_kable(Pitcher_summary, file = "Pitcher_summary.html")  
+webshot("Pitcher_summary.html", file = "Pitcher_summary.png")
+# Calculate pitch statistics and rename columns
+```
+```{r stuff-chart, fig.cap="stuff_summary_table", echo=FALSE, message=FALSE, warning=FALSE}
+# Load necessary libraries
+library(dplyr)
+library(gridExtra)
+library(gtable)
+library(grid)
+
+# Step 1: Summarize data
+stuff_summary_table <- dfStuff %>%
+  group_by(TaggedPitchType) %>%
+  summarise(
+    `Stuff +` = round(mean(Stuff, na.rm = TRUE),1),
+    `Location +` = round(mean(Location, na.rm = TRUE),1)
+  ) %>%
+  rename(`PitchType` = TaggedPitchType)
+
+# Step 2: Convert to a grob without row numbers and with styled column titles
+stuff_grob <- tableGrob(
+  as.data.frame(stuff_summary_table),
+  rows = NULL,  # Remove row numbers
+  theme = ttheme_minimal(
+    core = list(fg_params = list(fontsize = 10)),
+    colhead = list(
+      fg_params = list(col = "white", fontsize = 12, fontface = "bold"),
+      bg_params = list(fill = "#492590") # Set background color for column headers
+    )
+  )
+)
+note_box <- ggplot() +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "white", color = "black", size = 1),
+        plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt")) +
+  coord_cartesian(ylim = c(0, 0.05))
+
+
+
+# Step 4: Display the note box and table grob together
+combined_plot <- grid.arrange(stuff_grob, note_box, ncol = 2, widths = c(2, 3))
+
+# Optional: Save the combined plot as an image
+ggsave("stuff_combined.png", combined_plot, width = 10, height = 2)
+
+```
+
+
+
+
+```{r PitchMetrics, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
+# Assuming your data frame is called 'data' and it contains the columns 'PlateLocSide' and 'PlateLocHeight'
+
+# Create a new logical vector where TRUE indicates that the conditions are met
+dfPitcher$InZone <- ifelse((dfPitcher$PlateLocSide >= -.8 & dfPitcher$PlateLocSide <= .8) & 
+                           (dfPitcher$PlateLocHeight >= 1.4 & dfPitcher$PlateLocHeight <= 3.5), 
+                           1, 0)
+dfPitcher$Chase <- ifelse(
+  (dfPitcher$PlateLocSide <= -.8)| (dfPitcher$PlateLocSide >= .8) & 
+  ((dfPitcher$PlateLocHeight <= 1.4) | (dfPitcher$PlateLocHeight >= 3.5)) & 
+  (dfPitcher$PitchCall == "StrikeSwinging"),
+  1,
+  0
+)
+dfPitcher$OutZone <- ifelse((dfPitcher$PlateLocSide <= .8 & dfPitcher$PlateLocSide >= -.8) & 
+                           (dfPitcher$PlateLocHeight <= 1.4 & dfPitcher$PlateLocHeight >= 3.5), 
+                           1, 0)
+# To see which rows meet the condition
+
+total_pitches <- nrow(dfPitcher)
+pitch_stats_table <- dfPitcher %>%
+  group_by(TaggedPitchType) %>%
+  summarize(
+    Count=n(),
+    `Usage%` = round(n() / total_pitches * 100, 1), # Calculate usage percentage
+    Velo = round(mean(RelSpeed, na.rm = TRUE), 1),
+    `Top` = round(max(RelSpeed, na.rm = TRUE), 1),
+    `Spin` = round(mean(SpinRate, na.rm = TRUE), 0),
+    IVB = round(mean(InducedVertBreak, na.rm = TRUE), 1),
+    HB = round(mean(HorzBreak, na.rm = TRUE), 1),
+    VAA= round(mean(VertApprAngle,na.rm=TRUE),1),
+    HAA= round(mean(HorzApprAngle,na.rm=TRUE),1),
+    VRel = round(mean(RelHeight, na.rm = TRUE), 1),
+    HRel = round(mean(RelSide, na.rm = TRUE), 1),
+    Ext = round(mean(Extension, na.rm = TRUE), 1),
+    ) %>%
+  rename(`Pitch Type` = TaggedPitchType)%>%
+  arrange(desc(`Usage%`)) 
+  
+# Format and print pitch statistics table
+pitch_stats_table <- pitch_stats_table %>%
+  knitr::kable("html", align = "c", caption = "Pitch Metrics") %>%
+  kable_styling(bootstrap_options = c("striped", "bordered"), full_width = F, position = "center") %>%
+  row_spec(0, bold = T, color = "white", background = "#492590")
+save_kable(pitch_stats_table, file = "Metrics.html")  
+webshot("Metrics.html", file = "Metrics.png")
+
+
+```
+```{r SeasonPitchMetrics, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
+library(dplyr)
+library(knitr)
+library(kableExtra)
+library(webshot)
+
+# Assuming your DataFrame is called 'SeasondfPitcher'
+# Calculate whether each pitch is in the zone
+SeasondfPitcher$InZone <- ifelse((SeasondfPitcher$PlateLocSide >= -0.8 & SeasondfPitcher$PlateLocSide <= 0.8) & 
+                                 (SeasondfPitcher$PlateLocHeight >= 1.4 & SeasondfPitcher$PlateLocHeight <= 3.5), 
+                                 1, 0)
+
+# Calculate swings and whiffs
+SeasondfPitcher$Swing <- ifelse(SeasondfPitcher$PitchCall %in% c("StrikeSwinging", "Foul", "InPlay"), 1, 0)
+SeasondfPitcher$Whiff <- ifelse(SeasondfPitcher$PitchCall == "StrikeSwinging", 1, 0)
+
+# Define a chase: A swing at a pitch that is outside the strike zone
+SeasondfPitcher$Chase <- ifelse(SeasondfPitcher$InZone==0 & SeasondfPitcher$Whiff==1, 1, 0)
+SeasondfPitcher$OZ <- ifelse(SeasondfPitcher$InZone==0,1,0)
+seasontotal_pitches <- nrow(SeasondfPitcher)
+
+Seasonpitch_stats_table <- SeasondfPitcher %>%
+  group_by(TaggedPitchType) %>%
+  summarize(
+    Count = n(),
+    `Usage%` = round(n() / seasontotal_pitches * 100, 1), # Calculate usage percentage
+    Velo = round(mean(RelSpeed, na.rm = TRUE), 1),
+    `Top` = round(max(RelSpeed, na.rm = TRUE), 1),
+    `Spin` = round(mean(SpinRate, na.rm = TRUE), 0),
+    IVB = round(mean(InducedVertBreak, na.rm = TRUE), 1),
+    HB = round(mean(HorzBreak, na.rm = TRUE), 1),
+    VAA = round(mean(VertApprAngle, na.rm = TRUE), 1),
+    HAA = round(mean(HorzApprAngle, na.rm = TRUE), 1),
+    VRel = round(mean(RelHeight, na.rm = TRUE), 1),
+    HRel = round(mean(RelSide, na.rm = TRUE), 1),
+    Ext = round(mean(Extension, na.rm = TRUE), 1),
+  ) %>% 
+  rename(`PitchType` = TaggedPitchType) %>%
+  arrange(desc(`Usage%`))
+  #`Whiff%` = round(sum(Whiff) / sum(Swing) * 100, 1)
+
+# Format and print pitch statistics table
+Seasonpitch_stats_table <- Seasonpitch_stats_table %>%
+  knitr::kable("html", align = "c", caption = "Season Pitch Metrics") %>%
+  kable_styling(bootstrap_options = c("striped", "bordered"), full_width = F, position = "center") %>%
+  row_spec(0, bold = T, color = "white", background = "#492590")
+
+# Save and generate images from tables
+save_kable(Seasonpitch_stats_table, file = "SeasonMetrics.html")  
+webshot("SeasonMetrics.html", file = "SeasonMetrics.png")
+```
+
+
+```{r MovementPlot , echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
+# Assuming the color scale is defined
+pitch_colors <- c("Fastball" = "#C90101", "Slider" = "#0099FF", "Changeup" = "#CC54C0", 
+                  "Splitter" = "#CC54C0", "Curveball" = "#7FCEF1","Cutter"="yellow")
+pitch_type_colors <- scale_color_manual(values = pitch_colors)
+
+# Main Pitch Movement Plot
+MovementPlot <- ggplot(dfPitcher, aes(x = `HorzBreak`, y = InducedVertBreak, color = TaggedPitchType)) +
+  geom_point() +
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
+  geom_hline(yintercept = 0, color = "black", linetype = "dashed") +
+  coord_cartesian(xlim = c(-20, 20), ylim = c(-20, 20)) +
+  scale_x_continuous(breaks = seq(-20, 20, 10)) +
+  scale_y_continuous(breaks = seq(-20, 20, 10)) +
+  xlab("Horizontal Break") +
+  ylab("Induced Vertical Break") +
+  pitch_type_colors +
+  theme(aspect.ratio = 1, legend.position = "none")  # Legend on top for this plot
+# Filter for Left-Handed Hitters
+
+FilterzoneL <- dfPitcher %>% filter(BatterSide %in% c("Left"))
+ZoneL <- ggplot(FilterzoneL, aes(x = PlateLocSide, y = PlateLocHeight, color = TaggedPitchType)) +
+  geom_point() +
+  # Annotate the strike zone box
+  annotate("rect", xmin = -0.8, xmax = 0.8, ymin = 1.4, ymax = 3.5, fill = NA, color = "black") +
+  # 9-grid overlay inside the strike zone
+  annotate("segment", x = -0.8, xend = 0.8, y = 2.1, yend = 2.1, color = "black") +  # Horizontal grid line 1
+  annotate("segment", x = -0.8, xend = 0.8, y = 2.8, yend = 2.8, color = "black") +  # Horizontal grid line 2
+  annotate("segment", x = -0.267, xend = -0.267, y = 1.4, yend = 3.5, color = "black") +  # Vertical grid line 1
+  annotate("segment", x = 0.267, xend = 0.267, y = 1.4, yend = 3.5, color = "black") +  # Vertical grid line 2
+  xlim(-1.4, 1.4) + ylim(1, 4) +
+  theme_bw() +
+  xlab("Horizontal Pitch Location") +
+  ylab("Vertical Pitch Location") +
+  coord_equal() +
+  ggtitle("VS LHH", subtitle = "Pitcher's Perspective") +
+  pitch_type_colors +
+  theme(aspect.ratio = 1, plot.title = element_text(hjust = 0.5), legend.position = "none")  # No legend here
+
+# Filter for Right-Handed Hitters
+FilterzoneR <- dfPitcher %>% filter(BatterSide %in% c("Right"))
+ZoneR <- ggplot(FilterzoneR, aes(x = PlateLocSide, y = PlateLocHeight, color = TaggedPitchType)) +
+  geom_point() +
+  annotate("rect", xmin = -0.8, xmax = 0.8, ymin = 1.4, ymax = 3.5, fill = NA, color = "black") +
+  xlim(-1.4, 1.4) + ylim(1, 4) +
+  theme_bw() +
+  xlab("Horizontal Pitch Location") +
+  ylab("Vertical Pitch Location") +
+  coord_equal() +
+  ggtitle("VS RHH", subtitle = "Pitcher's Perspective") +
+  pitch_type_colors +
+  theme(aspect.ratio = 1,plot.title = element_text(hjust = 0.5), legend.position = "none")  # No legend here
+
+# Arrange the plots
+Grids<- grid.arrange(ZoneL, ZoneR, MovementPlot, nrow=3, widths = c(1, 1,1))
+ggsave("grid.png", plot = Grids, width = 8, height = 8)
+
+
+
+```
+
