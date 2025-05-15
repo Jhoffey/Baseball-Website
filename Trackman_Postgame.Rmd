@@ -87,11 +87,11 @@ library(dplyr)
 library(gridExtra)
 # Read and process data
 dfm <- read_csv("2025Season_CSV.csv") 
-SeasondfPitcher <- dfm %>% filter(Pitcher == "Connor Mattison", Date == "5/11/2025")
-dfStuff <- read_csv("combined_stuff_location.csv")
-SeasondfStuff <- read_csv("combined_stuff_location.csv") %>% filter(Pitcher == "Connor Mattison", Date == "5/11/2025")
+SeasondfPitcher <- dfm %>% filter(Pitcher == "Connor Mattison")
+dfStuff <- read_csv("combined_stuff_location.csv") %>% filter(Pitcher == "Connor Mattison", Date == "5/11/2025")
+SeasondfStuff <- read_csv("combined_stuff_location.csv") %>% filter(Pitcher == "Connor Mattison")
 dfp <- read_csv("2025Season_CSV.csv") 
-dfPitcher <- dfp %>% filter(Pitcher == "Connor Mattison") %>% 
+dfPitcher <- dfp %>% filter(Pitcher == "Connor Mattison", Date == "5/11/2025") %>% 
   mutate(
     BIP = ifelse (PitchCall %in% c("Inplay"), 1, 0),
     Strike_Swinging = ifelse(PitchCall %in% c("StrikeSwinging"), 1, 0),
