@@ -32,7 +32,7 @@ output: html_document
 
 </style>
 <div class="custom-header">
-  <h1>Ben Smith Scrimmage 10-27</h1>
+  <h1>Connor Mattison 5/11 VS Stanford</h1>
   <img src="GCUBASEBALL.jpg" alt="Header Image">
 </div>
 <div class="plot-container" style="width: 900px; height: 50px;">
@@ -50,10 +50,11 @@ output: html_document
 <div class="plot-container" style="width:900px; height: 80px;">
   <img src="stuff_combined.png">
 <style>
+<div class="plot-container" style="width:900px; height: 130px;">
+  <img src="SeasonMetrics.png">
+</div>
 ```{r Pitcher Summary, echo=FALSE, message=FALSE, warning=FALSE}
-#<div class="plot-container" style="width:900px; height: 130px;">
-  #<img src="SeasonMetrics.png">
-#</div>
+
 #IDEAS: Add Balls in play with location and move movement plot down to make a square and big
 library(randomForest)
 library(glm2)
@@ -72,10 +73,10 @@ library(patchwork)
 library(gtable)
 # Read and process data
 dfm <- read_csv("2025Season_CSV.csv") 
-SeasondfPitcher <- dfm %>% filter(Pitcher == "Ben Smith")
-dfStuff <- read_csv("combined_stuff_location.csv") %>% filter(Pitcher == "Ben Smith" & Date == "10/27/2024")
+SeasondfPitcher <- dfm %>% filter(Pitcher == "Connor Mattison")
+dfStuff <- read_csv("combined_stuff_location.csv") %>% filter(Pitcher == "Connor Mattison" & Date == "5/11/2025")
 dfp <- read_csv("2025Season_CSV.csv") 
-dfPitcher <- dfp %>%  filter(Pitcher == "Ben Smith") %>% 
+dfPitcher <- dfp %>%  filter(Pitcher == "Connor Mattison" & Date == "5/11/2025") %>% 
   mutate(
     BIP = ifelse (PitchCall %in% c("Inplay"), 1, 0),
     Strike_Swinging = ifelse(PitchCall %in% c("StrikeSwinging"), 1, 0),
