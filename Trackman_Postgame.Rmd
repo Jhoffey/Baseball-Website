@@ -6,7 +6,6 @@ output: html_document
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 10px;
 }
 
 
@@ -25,37 +24,52 @@ output: html_document
 /* Example CSS rules */
 .plot-container {
   align-items: center;
-  margin-bottom: 50px;
-    width: 200px; /* Adjust the width as needed */
+    width: auto; /* Adjust the width as needed */
     height: auto; /* Adjust the height as needed */
 }
+.plot-container1 {
+  margin-bottom: 5px;
+  align-items: center;
+    width: auto; /* Adjust the width as needed */
+    height: 120px; /* Adjust the height as needed */
+}
+.plot-container2 {
+  align-items: center;
+    width: auto; /* Adjust the width as needed */
+    height: 75px; /* Adjust the height as needed */
+}
+.plot-container3 {
+  align-items: center;
+    width: auto; /* Adjust the width as needed */
+    height: 150px; /* Adjust the height as needed */
+}
+
 
 </style>
 <div class="custom-header">
   <h1>Connor Mattison 5/11 VS Stanford</h1>
   <img src="GCUBASEBALL.jpg" alt="Header Image">
 </div>
-<div class="plot-container" style="width: 900px; height: 50px;">
+<div class="plot-container2" style="width: 900px; height: 75px;">
   <img src="Pitcher_summary.png">
 </div>
-<div class="plot-container" style="width:900px; height: 275px;">
+<div class="plot-container" style="width:900px; height: 290px;">
   <img src="grid.png">
 </div>
-<div class="plot-container" style="width:900px; height: 180px;">
+<h4 style="font-family: Arial, sans-serif; color: #492590;">Game Pitch Metrics Summary</h2>
+<div class="plot-container1" style="width:900px; height: 120px;">
   <img src="Metrics.png">
 </div>
-<div class="plot-container" style="width:900px; height: 180px;">
+<h4 style="font-family: Arial, sans-serif; color: #492590;">Season Pitch Metrics Summary</h2>
+<div class="plot-container1" style="width:900px; height: 120px;">
   <img src="SeasonMetrics.png">
 </div>
-<div class="plot-container" style="width:900px; height: 80px;">
-  <img src="stuff_combined.png">
+<div class="plot-container3" style="width:900px; height: 150px;">
+  <img src="VeloDistribution.png">
 <style>
-<div class="plot-container" style="width:900px; height: 130px;">
-  <img src="SeasonMetrics.png">
-</div>
 ```{r Pitcher Summary, echo=FALSE, message=FALSE, warning=FALSE}
 
-#IDEAS: Add Balls in play with location and move movement plot down to make a square and big
+
 library(randomForest)
 library(glm2)
 library(grid)
@@ -64,19 +78,20 @@ library(tidyverse) # Load libraries
 library(ggplot2)
 library(ggforce)
 library(kableExtra)
-library(dplyr)
 library(caret)
 library(pandoc)
-library(gridExtra)
 library(webshot)
 library(patchwork)
 library(gtable)
+library(dplyr)
+library(gridExtra)
 # Read and process data
 dfm <- read_csv("2025Season_CSV.csv") 
-SeasondfPitcher <- dfm %>% filter(Pitcher == "Connor Mattison")
-dfStuff <- read_csv("combined_stuff_location.csv") %>% filter(Pitcher == "Connor Mattison" & Date == "5/11/2025")
+SeasondfPitcher <- dfm %>% filter(Pitcher == "Connor Mattison", Date == "5/11/2025")
+dfStuff <- read_csv("combined_stuff_location.csv") %>%
+SeasondfStuff <- read_csv("combined_stuff_location.csv") %>% filter(Pitcher == "Connor Mattison", Date == "5/11/2025")
 dfp <- read_csv("2025Season_CSV.csv") 
-dfPitcher <- dfp %>%  filter(Pitcher == "Connor Mattison" & Date == "5/11/2025") %>% 
+dfPitcher <- dfp %>% filter(Pitcher == "Connor Mattison") %>% 
   mutate(
     BIP = ifelse (PitchCall %in% c("Inplay"), 1, 0),
     Strike_Swinging = ifelse(PitchCall %in% c("StrikeSwinging"), 1, 0),
@@ -168,8 +183,7 @@ Pitcher_summary <- dfPitcher %>%
     BB = sum(Walks),
     K = sum(Strikeouts),
     R = sum(RunsScored, na.rm = TRUE),
-    IP=max(Inning)-min(Inning)+1 ,
-    #1⁄3
+    #    IP=max(Inning)-min(Inning)+1 ,
     AVG = AVG,
     SLG = SLG,
     wOBA = wOBA,
@@ -184,22 +198,77 @@ save_kable(Pitcher_summary, file = "Pitcher_summary.html")
 webshot("Pitcher_summary.html", file = "Pitcher_summary.png")
 # Calculate pitch statistics and rename columns
 ```
-```{r stuff-chart, fig.cap="stuff_summary_table", echo=FALSE, message=FALSE, warning=FALSE}
-# Load necessary libraries
-library(dplyr)
-library(gridExtra)
-library(gtable)
-library(grid)
+```{r VeloDistibution, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
+# Load required packages
 
-# Step 1: Summarize data
+# Load required packages
+library(ggplot2)
+library(gridExtra)
+
+# Create a new column for abbreviated pitch type names
+dfPitcher$TaggedPitchTypeShort <- factor(
+  dfPitcher$TaggedPitchType, 
+  levels = c("Fastball", "Changeup", "Slider", "Curveball", "Splitter", "Cutter"),
+  labels = c("FB", "CH", "SL", "CB", "SP", "CT") # Abbreviated names
+)
+
+# Use the new column for plots that need the abbreviated names
+VeloDistribution <- ggplot(dfPitcher, aes(x = RelSpeed, fill = TaggedPitchTypeShort)) +
+  geom_density(alpha = 0.4) +
+  facet_wrap(~ TaggedPitchTypeShort, scales = "free_y", ncol = 1, strip.position = "left") +
+  theme_minimal() +
+  labs(
+    x = "Velocity (mph)",
+    y = "Density"
+  ) +
+  scale_fill_manual(values = c(
+ "FB" = "#F21500", "SL" = "#EDC10C", 
+                        "CH" = "#49CB21", 
+                        "SPL" = "#49CB21", 
+                        "CB" = "#4BD2FF", 
+                        "CT" = "#743F00")
+  ) +
+  scale_x_continuous(limits = c(70, 100), breaks = seq(70, 100, 5)) +
+  theme(
+    strip.text.y = element_text(size = 8, face = "bold", angle = 180),
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 8),
+    axis.title = element_text(size = 10),
+    plot.title = element_text(hjust = 0.5, size = 12),
+    legend.position = "none"
+  )
+
+# Create the note box
+note_box <- ggplot() +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "white", color = "black", size = 1),
+    plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt")
+  )
+
+# Combine the plot and note box
+combined_plot <- grid.arrange(VeloDistribution, note_box, ncol = 2, widths = c(3, 2))
+
+# Save the combined plot
+ggsave("VeloDistribution.png", plot = combined_plot, width = 8, height = 1.75)
+
+```
+```{r PitchMetrics, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
+# Assuming your data frame is called 'data' and it contains the columns 'PlateLocSide' and 'PlateLocHeight'
+dfStuff$TaggedPitchType <- factor(
+  dfStuff$TaggedPitchType, 
+  levels = c("Fastball",  "Changeup","Slider", "Curveball", "Splitter", "Cutter") # Desired order
+)
+
+
 stuff_summary_table <- dfStuff %>%
   group_by(TaggedPitchType) %>%
   summarise(
-    `Stuff +` = round(mean(Stuff, na.rm = TRUE),1),
-    `Location +` = round(mean(Location, na.rm = TRUE),1)
+    `Stuff +` = round(mean(Stuff, na.rm = TRUE), 1),
+    `Location +` = round(mean(Location, na.rm = TRUE), 1)
   ) %>%
-  rename(`PitchType` = TaggedPitchType)
-
+  ungroup() %>%
+  select(-TaggedPitchType) # Remove the `PitchType` (or `TaggedPitchType`) column
 # Step 2: Convert to a grob without row numbers and with styled column titles
 stuff_grob <- tableGrob(
   as.data.frame(stuff_summary_table),
@@ -212,45 +281,13 @@ stuff_grob <- tableGrob(
     )
   )
 )
-note_box <- ggplot() +
-  theme_void() +
-  theme(plot.background = element_rect(fill = "white", color = "black", size = 1),
-        plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt")) +
-  coord_cartesian(ylim = c(0, 0.05))
-
-
-
-# Step 4: Display the note box and table grob together
-combined_plot <- grid.arrange(stuff_grob, note_box, ncol = 2, widths = c(2, 3))
-
-# Optional: Save the combined plot as an image
-ggsave("stuff_combined.png", combined_plot, width = 10, height = 2)
-
-```
-
-
-
-
-```{r PitchMetrics, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
-# Assuming your data frame is called 'data' and it contains the columns 'PlateLocSide' and 'PlateLocHeight'
-
-# Create a new logical vector where TRUE indicates that the conditions are met
-dfPitcher$InZone <- ifelse((dfPitcher$PlateLocSide >= -.8 & dfPitcher$PlateLocSide <= .8) & 
-                           (dfPitcher$PlateLocHeight >= 1.4 & dfPitcher$PlateLocHeight <= 3.5), 
-                           1, 0)
-dfPitcher$Chase <- ifelse(
-  (dfPitcher$PlateLocSide <= -.8)| (dfPitcher$PlateLocSide >= .8) & 
-  ((dfPitcher$PlateLocHeight <= 1.4) | (dfPitcher$PlateLocHeight >= 3.5)) & 
-  (dfPitcher$PitchCall == "StrikeSwinging"),
-  1,
-  0
-)
-dfPitcher$OutZone <- ifelse((dfPitcher$PlateLocSide <= .8 & dfPitcher$PlateLocSide >= -.8) & 
-                           (dfPitcher$PlateLocHeight <= 1.4 & dfPitcher$PlateLocHeight >= 3.5), 
-                           1, 0)
-# To see which rows meet the condition
 
 total_pitches <- nrow(dfPitcher)
+dfPitcher$TaggedPitchType <- factor(
+  dfPitcher$TaggedPitchType, 
+  levels = c("Fastball",  "Changeup","Slider", "Curveball", "Splitter", "Cutter") # Desired order
+)
+
 pitch_stats_table <- dfPitcher %>%
   group_by(TaggedPitchType) %>%
   summarize(
@@ -267,41 +304,63 @@ pitch_stats_table <- dfPitcher %>%
     HRel = round(mean(RelSide, na.rm = TRUE), 1),
     Ext = round(mean(Extension, na.rm = TRUE), 1),
     ) %>%
-  rename(`Pitch Type` = TaggedPitchType)%>%
-  arrange(desc(`Usage%`)) 
-  
-# Format and print pitch statistics table
-pitch_stats_table <- pitch_stats_table %>%
-  knitr::kable("html", align = "c", caption = "Pitch Metrics") %>%
-  kable_styling(bootstrap_options = c("striped", "bordered"), full_width = F, position = "center") %>%
-  row_spec(0, bold = T, color = "white", background = "#492590")
-save_kable(pitch_stats_table, file = "Metrics.html")  
-webshot("Metrics.html", file = "Metrics.png")
+  rename(`Pitch Type` = TaggedPitchType)
+
+stats_grob <- tableGrob(
+  as.data.frame(pitch_stats_table),
+  rows = NULL,  # Remove row numbers
+  theme = ttheme_minimal(
+    core = list(fg_params = list(fontsize = 10)),
+    colhead = list(
+      fg_params = list(col = "white", fontsize = 12, fontface = "bold"),
+      bg_params = list(fill = "#492590") # Set background color for column headers
+    )
+  )
+)
+
+
+combined_plot <- grid.arrange(stats_grob,stuff_grob,  ncol = 2, widths = c(3, 1))
+
+# Optional: Save the combined plot as an image
+ggsave("Metrics.png", combined_plot, width = 10, height = 1.25)
 
 
 ```
 ```{r SeasonPitchMetrics, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
-library(dplyr)
-library(knitr)
-library(kableExtra)
-library(webshot)
+SeasondfStuff$TaggedPitchType <- factor(
+  SeasondfStuff$TaggedPitchType, 
+  levels = c("Fastball",  "Changeup","Slider", "Curveball", "Splitter", "Cutter") # Desired order
+)
 
-# Assuming your DataFrame is called 'SeasondfPitcher'
-# Calculate whether each pitch is in the zone
-SeasondfPitcher$InZone <- ifelse((SeasondfPitcher$PlateLocSide >= -0.8 & SeasondfPitcher$PlateLocSide <= 0.8) & 
-                                 (SeasondfPitcher$PlateLocHeight >= 1.4 & SeasondfPitcher$PlateLocHeight <= 3.5), 
-                                 1, 0)
+Season_stuff_summary_table <- SeasondfStuff %>%
+  group_by(TaggedPitchType) %>%
+  summarise(
+    `Stuff +` = round(mean(Stuff, na.rm = TRUE), 1),
+    `Location +` = round(mean(Location, na.rm = TRUE), 1)
+  ) %>%
+  ungroup() %>%
+  select(-TaggedPitchType) # Remove the `PitchType` (or `TaggedPitchType`) column
+# Step 2: Convert to a grob without row numbers and with styled column titles
+season_stuff_grob <- tableGrob(
+  as.data.frame(Season_stuff_summary_table),
+  rows = NULL,  # Remove row numbers
+  theme = ttheme_minimal(
+    core = list(fg_params = list(fontsize = 10)),
+    colhead = list(
+      fg_params = list(col = "white", fontsize = 12, fontface = "bold"),
+      bg_params = list(fill = "#492590") # Set background color for column headers
+    )
+  )
+)
 
 # Calculate swings and whiffs
-SeasondfPitcher$Swing <- ifelse(SeasondfPitcher$PitchCall %in% c("StrikeSwinging", "Foul", "InPlay"), 1, 0)
-SeasondfPitcher$Whiff <- ifelse(SeasondfPitcher$PitchCall == "StrikeSwinging", 1, 0)
-
-# Define a chase: A swing at a pitch that is outside the strike zone
-SeasondfPitcher$Chase <- ifelse(SeasondfPitcher$InZone==0 & SeasondfPitcher$Whiff==1, 1, 0)
-SeasondfPitcher$OZ <- ifelse(SeasondfPitcher$InZone==0,1,0)
 seasontotal_pitches <- nrow(SeasondfPitcher)
+SeasondfPitcher$TaggedPitchType <- factor(
+  SeasondfPitcher$TaggedPitchType, 
+  levels = c("Fastball",  "Changeup","Slider", "Curveball", "Splitter", "Cutter") # Desired order
+)
 
-Seasonpitch_stats_table <- SeasondfPitcher %>%
+Season_pitch_stats_table <- SeasondfPitcher %>%
   group_by(TaggedPitchType) %>%
   summarize(
     Count = n(),
@@ -317,26 +376,36 @@ Seasonpitch_stats_table <- SeasondfPitcher %>%
     HRel = round(mean(RelSide, na.rm = TRUE), 1),
     Ext = round(mean(Extension, na.rm = TRUE), 1),
   ) %>% 
-  rename(`PitchType` = TaggedPitchType) %>%
-  arrange(desc(`Usage%`))
-  #`Whiff%` = round(sum(Whiff) / sum(Swing) * 100, 1)
+  rename(`PitchType` = TaggedPitchType) 
 
-# Format and print pitch statistics table
-Seasonpitch_stats_table <- Seasonpitch_stats_table %>%
-  knitr::kable("html", align = "c", caption = "Season Pitch Metrics") %>%
-  kable_styling(bootstrap_options = c("striped", "bordered"), full_width = F, position = "center") %>%
-  row_spec(0, bold = T, color = "white", background = "#492590")
+season_stats_grob <- tableGrob(
+  as.data.frame(Season_pitch_stats_table),
+  rows = NULL,  # Remove row numbers
+  theme = ttheme_minimal(
+    core = list(fg_params = list(fontsize = 10)),
+    colhead = list(
+      fg_params = list(col = "white", fontsize = 12, fontface = "bold"),
+      bg_params = list(fill = "#492590") # Set background color for column headers
+    )
+  )
+)
 
-# Save and generate images from tables
-save_kable(Seasonpitch_stats_table, file = "SeasonMetrics.html")  
-webshot("SeasonMetrics.html", file = "SeasonMetrics.png")
+
+season_combined_plot <- grid.arrange(season_stats_grob,season_stuff_grob,  ncol = 2, widths = c(3, 1))
+
+# Optional: Save the combined plot as an image
+ggsave("SeasonMetrics.png", season_combined_plot, width = 10, height = 1.25)
 ```
 
 
 ```{r MovementPlot , echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
 # Assuming the color scale is defined
-pitch_colors <- c("Fastball" = "#C90101", "Slider" = "#0099FF", "Changeup" = "#CC54C0", 
-                  "Splitter" = "#CC54C0", "Curveball" = "#7FCEF1","Cutter"="yellow")
+pitch_colors <- c("Fastball" = "#F21500", 
+                        "Slider" = "#EDC10C", 
+                        "Changeup" = "#49CB21", 
+                        "Splitter" = "#49CB21", 
+                        "Curveball" = "#4BD2FF", 
+                        "Cutter" = "#743F00")
 pitch_type_colors <- scale_color_manual(values = pitch_colors)
 
 # Main Pitch Movement Plot
@@ -376,7 +445,13 @@ ZoneL <- ggplot(FilterzoneL, aes(x = PlateLocSide, y = PlateLocHeight, color = T
 FilterzoneR <- dfPitcher %>% filter(BatterSide %in% c("Right"))
 ZoneR <- ggplot(FilterzoneR, aes(x = PlateLocSide, y = PlateLocHeight, color = TaggedPitchType)) +
   geom_point() +
+  # Annotate the strike zone box
   annotate("rect", xmin = -0.8, xmax = 0.8, ymin = 1.4, ymax = 3.5, fill = NA, color = "black") +
+  # 9-grid overlay inside the strike zone
+  annotate("segment", x = -0.8, xend = 0.8, y = 2.1, yend = 2.1, color = "black") +  # Horizontal grid line 1
+  annotate("segment", x = -0.8, xend = 0.8, y = 2.8, yend = 2.8, color = "black") +  # Horizontal grid line 2
+  annotate("segment", x = -0.267, xend = -0.267, y = 1.4, yend = 3.5, color = "black") +  # Vertical grid line 1
+  annotate("segment", x = 0.267, xend = 0.267, y = 1.4, yend = 3.5, color = "black") +  # Vertical grid line 2
   xlim(-1.4, 1.4) + ylim(1, 4) +
   theme_bw() +
   xlab("Horizontal Pitch Location") +
@@ -384,7 +459,7 @@ ZoneR <- ggplot(FilterzoneR, aes(x = PlateLocSide, y = PlateLocHeight, color = T
   coord_equal() +
   ggtitle("VS RHH", subtitle = "Pitcher's Perspective") +
   pitch_type_colors +
-  theme(aspect.ratio = 1,plot.title = element_text(hjust = 0.5), legend.position = "none")  # No legend here
+  theme(aspect.ratio = 1, plot.title = element_text(hjust = 0.5), legend.position = "none")  # No legend here
 
 # Arrange the plots
 Grids<- grid.arrange(ZoneL, ZoneR, MovementPlot, nrow=3, widths = c(1, 1,1))
