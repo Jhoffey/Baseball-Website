@@ -88,7 +88,7 @@ library(gridExtra)
 # Read and process data
 dfm <- read_csv("2025Season_CSV.csv") 
 SeasondfPitcher <- dfm %>% filter(Pitcher == "Connor Mattison", Date == "5/11/2025")
-dfStuff <- read_csv("combined_stuff_location.csv") %>%
+dfStuff <- read_csv("combined_stuff_location.csv")
 SeasondfStuff <- read_csv("combined_stuff_location.csv") %>% filter(Pitcher == "Connor Mattison", Date == "5/11/2025")
 dfp <- read_csv("2025Season_CSV.csv") 
 dfPitcher <- dfp %>% filter(Pitcher == "Connor Mattison") %>% 
